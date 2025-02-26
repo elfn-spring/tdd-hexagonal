@@ -1,10 +1,13 @@
 package com.elfn.hexagonaldemo.api;
 
+import com.elfn.hexagonaldemo.dto.GetStockPositionAndMarketValueApiResponseDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Classe de test pour l'API de récupération des positions et de la valeur de marché des actions.
@@ -29,6 +32,8 @@ public class GetStockPositionAndMarketValueApiTest {
                 .uri("/stock-position-market-value/" + symbol)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus().isOk()
+                .expectBody(GetStockPositionAndMarketValueApiResponseDto.class)
+                .value(dto -> assertThat(dto.getSymbol()).isEqualTo(symbol));
     }
 }
