@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class StockPosition {
     private String symbol;
-    private BigDecimal quantity;
+    private Integer quantity;
     private String currencyCode;
     private BigDecimal cost;
 }

@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 
 @Service
 public class GetStockPositionService {
-    public Mono<StockPosition> getStockPosition(String symbol) {
+    public Mono<StockPosition> getStockPosition(String user, String symbol) {
         return Mono.empty();
     }
 }

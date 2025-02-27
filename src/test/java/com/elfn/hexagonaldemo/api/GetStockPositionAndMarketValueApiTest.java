@@ -7,12 +7,13 @@ import com.github.javafaker.Faker;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
@@ -24,7 +25,9 @@ import static org.mockito.Mockito.when;
 
 /**
  * Classe de test pour l'API de récupération des positions et de la valeur de marché des actions.
- * Ce test utilise WebFluxTest pour tester un contrôleur Spring WebFlux de manière réactive.
+ *
+ * <p>Cette classe utilise **Spring WebFluxTest** pour tester un contrôleur Spring WebFlux de manière réactive.
+ * Elle emploie **Mockito** pour simuler les services nécessaires et **WebTestClient** pour exécuter les tests sur l'API.</p>
  */
 @WebFluxTest(GetStockPositionsController.class)
 @ExtendWith(MockitoExtension.class)
@@ -33,44 +36,99 @@ public class GetStockPositionAndMarketValueApiTest {
     @Autowired
     private WebTestClient client;
 
-
     @MockBean
     private GetStockPositionService getStockPositionService;
 
-    private static Faker faker = Faker.instance();
+    private static final Faker faker = Faker.instance();
 
     /**
-     * Teste l'endpoint GET "/stock-position-market-value/{symbol}".
-     * Vérifie que l'API répond avec un statut HTTP 200 (OK).
+     * Teste l'endpoint GET "/stock-position-market-value/{symbol}" avec un utilisateur authentifié.
+     *
+     * <p>Ce test vérifie que l'API retourne un statut **HTTP 200 (OK)** et une réponse JSON contenant :</p>
+     * <ul>
+     *   <li>Le symbole de l'action demandé</li>
+     *   <li>La quantité d'actions possédées</li>
+     *   <li>Le code de la devise utilisée</li>
+     *   <li>Le coût total de la position</li>
+     * </ul>
+     *
+     * <p>Le test utilise un utilisateur fictif **"elsior"** grâce à l'annotation `@WithMockUser`.</p>
      */
     @Test
+    @WithMockUser(username = "elsior")
     void get() {
-        // arrange
+        // Arrange - Préparation des données de test
         String symbol = "aapl";
         StockPosition fakeStockPosition = getFakeStockPosition(symbol);
+        String user = "elsior";
 
-        when(getStockPositionService.getStockPosition(symbol)).thenReturn(Mono.just(fakeStockPosition));
+        when(getStockPositionService.getStockPosition(user, symbol)).thenReturn(Mono.just(fakeStockPosition));
 
-        // act
-        client.get()
-                .uri("/stock-position-market-value/" + symbol)
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                // assert
+        // Act - Exécution de la requête HTTP GET
+        getRequest(symbol)
+                // Assert - Vérification des résultats
                 .expectStatus().isOk()
                 .expectBody(GetStockPositionAndMarketValueApiResponseDto.class)
                 .value(dto -> assertAll(
                         () -> assertThat(dto.getSymbol()).isEqualTo(symbol),
-                        () -> assertThat(dto.getQuantity().doubleValue()).isCloseTo(fakeStockPosition.getQuantity().doubleValue(), Offset.offset(1.0)),
+                        () -> assertThat(dto.getQuantity().doubleValue())
+                                .isCloseTo(fakeStockPosition.getQuantity().doubleValue(), Offset.offset(1.0)),
                         () -> assertThat(dto.getCurrencyCode()).isEqualTo(fakeStockPosition.getCurrencyCode()),
-                        () -> assertThat(dto.getCost().doubleValue()).isCloseTo(fakeStockPosition.getCost().doubleValue(), Offset.offset(0.0001))
+                        () -> assertThat(dto.getCost().doubleValue())
+                                .isCloseTo(fakeStockPosition.getCost().doubleValue(), Offset.offset(0.0001))
                 ));
     }
 
+    /**
+     * Exécute une requête GET sur l'API pour récupérer la position d'une action.
+     *
+     * @param symbol Le symbole de l'action
+     * @return La réponse de l'API sous forme de {@link WebTestClient.ResponseSpec}
+     */
+    private WebTestClient.ResponseSpec getRequest(String symbol) {
+        return client.get()
+                .uri("/stock-position-market-value/" + symbol)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange();
+    }
+
+    /**
+     * Teste l'accès à l'API avec un utilisateur anonyme.
+     *
+     * <p>Ce test vérifie que l'API retourne un statut **403 Forbidden**, indiquant que
+     * l'utilisateur est reconnu mais n'a pas les autorisations nécessaires.</p>
+     */
+//    @Test
+//    @WithAnonymousUser
+//    void anonymousGet() {
+//        getRequest("ooo")
+//                .expectStatus()
+//                .isForbidden();
+//    }
+
+    /**
+     * Teste l'accès à l'API sans authentification.
+     *
+     * <p>Ce test vérifie que l'API retourne un statut **401 Unauthorized**, indiquant que
+     * l'utilisateur doit être authentifié pour accéder à la ressource.</p>
+     */
+    @Test
+    void unauthenticatedGet() {
+        getRequest("aapl")
+                .expectStatus()
+                .isUnauthorized();
+    }
+
+    /**
+     * Génère une fausse position boursière pour les tests en utilisant la bibliothèque **JavaFaker**.
+     *
+     * @param symbol Le symbole de l'action
+     * @return Une instance fictive de {@link StockPosition} avec des valeurs aléatoires
+     */
     private static StockPosition getFakeStockPosition(String symbol) {
-       return new StockPosition(
+        return new StockPosition(
                 symbol,
-                BigDecimal.valueOf(faker.number().randomDouble(2, 0, 100)),
+                faker.number().numberBetween(1, 100),
                 faker.currency().code(),
                 BigDecimal.valueOf(faker.number().randomDouble(2, 0, 1000000))
         );
