@@ -14,5 +14,4 @@ public class GetStockPositionAndMarketValueApiResponseDto {
     String currencyCode;
     Number cost;
     Number marketValue;
-
 }
